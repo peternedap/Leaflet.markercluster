@@ -726,7 +726,7 @@ export var MarkerClusterGroup = L.MarkerClusterGroup = L.FeatureGroup.extend({
 		delete e.target.__dragStart;
 		if (dragStart) {
 			this._moveChild(e.target, dragStart, e.target._latlng);
-		}		
+		}
 	},
 
 
@@ -935,7 +935,18 @@ export var MarkerClusterGroup = L.MarkerClusterGroup = L.FeatureGroup.extend({
 
 	_moveEnd: function () {
 		if (this._inZoomAnimation) {
-			return;
+			// A move landed while a cluster zoom animation is still pending (its cleanup is
+			// deferred on the _enqueue timer). Finalise that animation synchronously by
+			// flushing its queue instead of dropping this move: otherwise the markers that
+			// should appear in the newly revealed bounds are never added and vanish until
+			// the next interaction (e.g. markers disappearing after a resize-triggered fit).
+			this._processQueue();
+
+			// If the flush did not settle the animation (should not happen), keep the
+			// original guard so we never reconcile against a half-animated tree.
+			if (this._inZoomAnimation) {
+				return;
+			}
 		}
 
 		var newBounds = this._getExpandedVisibleBounds();
@@ -968,7 +979,7 @@ export var MarkerClusterGroup = L.MarkerClusterGroup = L.FeatureGroup.extend({
 		this._gridUnclustered = {};
 
 		//Set up DistanceGrids for each zoom
-				
+
 		if (!isFinite(maxZoom) ) {
           		throw "Map has no maxZoom specified";
         	}
